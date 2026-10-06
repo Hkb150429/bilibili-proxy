@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>B站视频监控 · 趋势与对比</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    body { min-height: 100vh; background: linear-gradient(145deg, #f9f2f5 0%, #e9e2f0 100%); padding: 1.5rem; color: #1e1a2b; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .card { background: rgba(255,255,255,0.85); backdrop-filter: blur(16px); border-radius: 2rem; box-shadow: 0 20px 40px -20px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.6) inset; padding: 2rem; margin-bottom: 1.5rem; }
+    h1 { display: flex; align-items: center; gap: 0.5rem; font-size: 1.75rem; font-weight: 700; margin-bottom: 0.4rem; }
+    h1 .accent { background: linear-gradient(135deg, #fb7299, #d44a7c); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .subhead { color: #4e3b5a; opacity: 0.7; font-size: 0.9rem; padding-left: 0.75rem; border-left: 3px solid #fb7299; margin-bottom: 1.5rem; }
+    .input-group { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem; }
+    .input-group input { flex: 1 1 240px; background: #ffffffd9; border: 1.5px solid #ddd0e0; border-radius: 3rem; padding: 0.9rem 1.5rem; font-size: 1rem; outline: none; transition: 0.2s; color: #1e1a2b; font-weight: 500; }
+    .input-group input:focus { border-color: #fb7299; box-shadow: 0 0 0 4px rgba(251,114,153,0.2); }
+    .btn { border: none; border-radius: 3rem; padding: 0.9rem 2rem; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; white-space: nowrap; }
+    .btn-primary { background: #1e1a2b; color: white; box-shadow: 0 8px 18px -6px rgba(0,0,0,0.25); }
+    .btn-primary:hover:not(:disabled) { background: #fb7299; transform: scale(1.02); }
+    .btn-primary:disabled { background: #aaa0b0; cursor: not-allowed; opacity: 0.7; }
+    .btn-ghost { background: #f4edf9; color: #6a5677; font-size: 0.85rem; padding: 0.5rem 1.1rem; box-shadow: none; }
+    .btn-ghost:hover { background: #ffeaef; color: #c0345c; }
+    .btn-danger { background: #ffeaef; color: #c0345c; font-size: 0.85rem; padding: 0.5rem 1.1rem; box-shadow: none; }
+    .btn-danger:hover { background: #ffb8cb; color: #7a1c33; }
+    .tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .tab { padding: 0.6rem 1.3rem; border-radius: 2rem; background: #f4edf9; color: #6a5677; font-weight: 600; font-size: 0.9rem; cursor: pointer; border: none; transition: all 0.2s; }
+    .tab.active { background: #1e1a2b; color: white; }
+    .tab:hover:not(.active) { background: #ffeef4; color: #fb7299; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .video-info { display: flex; flex-direction: column; gap: 1.5rem; }
+    .video-header { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-start; }
+    .cover { flex: 0 0 200px; border-radius: 1.5rem; overflow: hidden; box-shadow: 0 12px 25px -10px rgba(0,0,0,0.3); background: #eae2f0; aspect-ratio: 16/10; }
+    .cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .meta { flex: 1 1 280px; }
+    .meta .title { font-size: 1.3rem; font-weight: 700; line-height: 1.4; margin-bottom: 0.8rem; }
+    .up-info { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem; color: #51425c; font-weight: 500; }
+    .up-avatar { width: 36px; height: 36px; border-radius: 50%; background: #ffeef4; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #fb7299; flex-shrink: 0; border: 2px solid white; object-fit: cover; }
+    .badge { background: #f0e6f5; padding: 0.2rem 0.8rem; border-radius: 2rem; font-size: 0.8rem; color: #6a5677; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; margin-top: 1.5rem; background: #f6edfa80; border-radius: 1.5rem; padding: 1.2rem; }
+    .stat-item { display: flex; align-items: center; gap: 0.75rem; }
+    .stat-icon { background: #ffffff; border-radius: 1rem; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
+    .stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #8d7b9b; font-weight: 600; }
+    .stat-value { font-weight: 700; font-size: 1rem; }
+    .desc-box { background: #f4edf9; border-radius: 1.2rem; padding: 1.2rem 1.25rem; color: #3d2f47; font-size: 0.95rem; line-height: 1.5; border-left: 5px solid #fb7299; word-break: break-word; }
+    .placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1rem; color: #8d7b9b; gap: 0.75rem; text-align: center; }
+    .placeholder svg { opacity: 0.5; }
+    .error-message { background: #ffeaef; color: #c0345c; padding: 1rem 1.5rem; border-radius: 2rem; font-weight: 500; display: flex; align-items: center; gap: 0.6rem; border: 1px solid #ffb8cb; margin-bottom: 1rem; }
+    .loading-spinner { display: flex; justify-content: center; align-items: center; gap: 0.75rem; padding: 3rem 0; color: #6a5677; font-weight: 500; }
+    .spinner { width: 26px; height: 26px; border: 3px solid #e0d3e9; border-top-color: #fb7299; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .watch-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+    .watch-item { background: #f9f2f5; border-radius: 1.2rem; padding: 1rem 1.2rem; border-left: 4px solid #fb7299; transition: 0.2s; }
+    .watch-item:hover { background: #ffeef4; transform: translateY(-2px); box-shadow: 0 8px 20px -10px rgba(251,114,153,0.5); }
+    .watch-item .wi-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 0.4rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .watch-item .wi-meta { font-size: 0.78rem; color: #8d7b9b; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .watch-item .wi-actions { display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap; }
+    .chart-container { position: relative; height: 420px; margin-top: 1rem; }
+    .chart-controls { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .metric-toggle { padding: 0.4rem 1rem; border-radius: 2rem; background: #f4edf9; color: #6a5677; font-size: 0.85rem; font-weight: 600; border: none; cursor: pointer; transition: 0.2s; }
+    .metric-toggle.active { background: #fb7299; color: white; }
+    .metric-toggle:hover:not(.active) { background: #ffeef4; }
+    .empty-hint { text-align: center; padding: 2.5rem 1rem; color: #8d7b9b; font-size: 0.95rem; }
+    .compare-picker { background: #f9f2f5; border-radius: 1.5rem; padding: 1.25rem; margin-bottom: 1.25rem; }
+    .compare-picker-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
+    .compare-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.6rem; max-height: 240px; overflow-y: auto; }
+    .compare-item { display: flex; align-items: center; gap: 0.75rem; background: white; border-radius: 1rem; padding: 0.7rem 1rem; cursor: pointer; transition: 0.2s; border: 2px solid transparent; }
+    .compare-item:hover { background: #ffeef4; }
+    .compare-item.selected { border-color: #fb7299; background: #fff0f5; }
+    .compare-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: #fb7299; cursor: pointer; }
+    .compare-item .ci-info { flex: 1; min-width: 0; }
+    .compare-item .ci-title { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .compare-item .ci-meta { font-size: 0.72rem; color: #8d7b9b; margin-top: 0.15rem; }
+    .color-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; display: none; }
+    .compare-item.selected .color-dot { display: block; }
+    .compare-table { width: 100%; border-collapse: collapse; margin-top: 1.5rem; }
+    .compare-table th, .compare-table td { padding: 0.7rem 0.5rem; text-align: right; font-size: 0.85rem; border-bottom: 1px solid #f0e6f5; }
+    .compare-table th:first-child, .compare-table td:first-child { text-align: left; }
+    .compare-table thead th { color: #8d7b9b; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    .compare-table tbody tr:hover { background: #f9f2f5; }
+    .delta-up { color: #1c7a3e; }
+    .delta-down { color: #c0345c; }
+    .delta-zero { color: #aaa; }
+    /* 回首页按钮 */
+    .home-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1.1rem;
+      border-radius: 3rem;
+      background: #f4edf9;
+      color: #6a5677;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      border: none;
+      cursor: pointer;
+    }
+    .home-btn:hover {
+      background: #ffeaef;
+      color: #c0345c;
+      transform: scale(1.03);
+    }
+    @media (max-width: 600px) {
+      .card { padding: 1.25rem; }
+      h1 { font-size: 1.4rem; }
+      .cover { flex: 0 0 100%; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .btn { padding: 0.8rem 1.3rem; font-size: 0.9rem; }
+      .chart-container { height: 320px; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+      <h1><span class="accent">✧</span> B站视频监控 <span class="accent">✧</span></h1>
+      <a href="https://hkb150429.github.io" class="home-btn" target="_blank" rel="noopener">🏠 回首页</a>
+    </div>
+    <div class="subhead">输入 BV 号自动加入监控 · 后台每 12~18 分钟随机刷新 · 同一轮所有视频共用 roundId</div>
+    <div class="input-group">
+      <input type="text" id="bvInput" placeholder="例如：BV1xx411c7mD" value="BV1xx411c7mD" autocomplete="off" spellcheck="false">
+      <button class="btn btn-primary" id="fetchBtn">🔍 查询并监控</button>
+    </div>
+    <div style="margin-top:0.75rem;">
+      <button class="btn btn-ghost" id="toggleBatchBtn" style="font-size:0.85rem;">📦 批量加入 BV 号</button>
+    </div>
+    <div id="batchPanel" style="display:none;margin-top:0.75rem;">
+      <textarea id="batchInput" rows="5" placeholder="每行一个 BV 号，或用空格/逗号分隔&#10;例如：&#10;BV1xx411c7mD&#10;BV1Kc9HB6EoQ, BV1dyoDBCEWU" style="width:100%;border:1.5px solid #ddd0e0;border-radius:1rem;padding:1rem;font-size:0.9rem;font-family:monospace;resize:vertical;outline:none;"></textarea>
+      <div style="display:flex;gap:0.5rem;margin-top:0.5rem;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-primary" id="batchSubmitBtn" style="padding:0.7rem 1.5rem;font-size:0.9rem;">开始批量加入</button>
+        <button class="btn btn-ghost" id="batchClearBtn" style="font-size:0.85rem;">清空</button>
+        <span id="batchStatus" style="font-size:0.85rem;color:#6a5677;"></span>
+      </div>
+      <div id="batchResult" style="margin-top:0.75rem;font-size:0.85rem;"></div>
+    </div>
+    <div id="globalMessage"></div>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" data-panel="panel-current">📺 当前查询</button>
+      <button class="tab" data-panel="panel-watchlist">📋 监控列表</button>
+      <button class="tab" data-panel="panel-compare">📊 趋势与对比</button>
+    </div>
+
+    <div class="panel active" id="panel-current">
+      <div id="currentResult">
+        <div class="placeholder">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#b8a7c5" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <div>输入 BV 号，点击查询</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-watchlist">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem;">
+        <div style="font-weight:600;">共 <span id="watchCount">0</span> 个视频正在监控</div>
+        <button class="btn btn-ghost" id="refreshWatchlist">🔄 刷新列表</button>
+      </div>
+      <div id="watchlistContent"><div class="empty-hint">加载中...</div></div>
+    </div>
+
+    <div class="panel" id="panel-compare">
+      <div class="compare-picker">
+        <div class="compare-picker-title">
+          <span>选择视频（1 个看趋势，多个做对比，最多 15 个）</span>
+          <div style="display:flex;gap:0.5rem;">
+            <button class="btn btn-ghost" id="selectAllBtn">全选</button>
+            <button class="btn btn-ghost" id="clearAllBtn">清空</button>
+          </div>
+        </div>
+        <div class="compare-list" id="compareList">
+          <div class="empty-hint" style="grid-column:1/-1;">暂无监控视频，先查询一次 BV 号</div>
+        </div>
+      </div>
+
+      <div class="chart-controls" id="compareControls">
+        <button class="metric-toggle active" data-metric="view">播放量</button>
+        <button class="metric-toggle" data-metric="like">点赞</button>
+        <button class="metric-toggle" data-metric="coin">投币</button>
+        <button class="metric-toggle" data-metric="favorite">收藏</button>
+        <button class="metric-toggle" data-metric="reply">评论</button>
+        <button class="metric-toggle" data-metric="danmaku">弹幕</button>
+      </div>
+
+      <div class="chart-controls" id="modeControls">
+        <button class="metric-toggle active" data-mode="absolute">绝对值</button>
+        <button class="metric-toggle" data-mode="delta">增量</button>
+        <button class="metric-toggle" data-mode="percent">百分比</button>
+      </div>
+
+      <div class="chart-container">
+        <canvas id="compareChart"></canvas>
+      </div>
+      <div id="compareEmpty" class="empty-hint">勾选上方视频即可查看趋势</div>
+
+      <div id="compareTable"></div>
+    </div>
+
+  </div>
+
+  <div style="text-align:right;font-size:0.75rem;color:#9b8ba8;padding:0 0.5rem;">
+    接口同源 · <span id="apiBaseDisplay">(相对路径)</span>
+  </div>
+</div>
+
+<script>
+(function () {
+  const API_BASE = '';
+  document.getElementById('apiBaseDisplay').textContent = location.origin;
+
+  const MAX_COMPARE = 15;
+
+  const bvInput = document.getElementById('bvInput');
+  const fetchBtn = document.getElementById('fetchBtn');
+  const currentResult = document.getElementById('currentResult');
+  const globalMessage = document.getElementById('globalMessage');
+  const watchlistContent = document.getElementById('watchlistContent');
+  const watchCount = document.getElementById('watchCount');
+  const refreshWatchlistBtn = document.getElementById('refreshWatchlist');
+  const compareList = document.getElementById('compareList');
+  const compareChartCanvas = document.getElementById('compareChart');
+  const compareEmpty = document.getElementById('compareEmpty');
+  const compareTable = document.getElementById('compareTable');
+  const selectAllBtn = document.getElementById('selectAllBtn');
+  const clearAllBtn = document.getElementById('clearAllBtn');
+
+  let compareChartInstance = null;
+  let currentMetric = 'view';
+  let currentMode = 'absolute';
+  let watchedList = [];
+  let selectedBvids = new Set();
+
+  const COLORS = [
+    '#fb7299', '#4a90e2', '#f5a623', '#1c7a3e', '#9b59b6',
+    '#e74c3c', '#16a085', '#f39c12', '#8e44ad', '#2c3e50',
+    '#e67e22', '#27ae60', '#2980b9', '#d35400', '#7f8c8d',
+  ];
+
+  function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+  function formatNumber(num) {
+    if (num === undefined || num === null) return '0';
+    const n = Number(num);
+    if (isNaN(n)) return '0';
+    if (n >= 100000000) return (n / 100000000).toFixed(2) + '亿';
+    if (n >= 10000) return (n / 10000).toFixed(2) + '万';
+    return n.toLocaleString();
+  }
+  function formatTime(ts) {
+    if (!ts) return '未知';
+    const d = new Date(ts);
+    const pad = (n) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+  function formatDuration(sec) {
+    if (!sec && sec !== 0) return '未知';
+    const s = Number(sec);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const ss = s % 60;
+    if (h > 0) return `${h}:${m.toString().padStart(2,'0')}:${ss.toString().padStart(2,'0')}`;
+    return `${m}:${ss.toString().padStart(2,'0')}`;
+  }
+  function formatDate(ts) {
+    if (!ts) return '未知';
+    const d = new Date(ts * 1000);
+    const pad = (n) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+  function showGlobalMessage(msg, type = 'error') {
+    if (type === 'success') {
+      globalMessage.innerHTML = `<div class="error-message" style="background:#e6f7ec;color:#1c7a3e;border-color:#a8e6bf;"><span>✅</span> ${escapeHtml(msg)}</div>`;
+    } else {
+      globalMessage.innerHTML = `<div class="error-message"><span>⚠️</span> ${escapeHtml(msg)}</div>`;
+    }
+    setTimeout(() => { globalMessage.innerHTML = ''; }, 5000);
+  }
+  async function apiGet(path) {
+    const res = await fetch(`${API_BASE}${path}`);
+    return res.json();
+  }
+  async function apiDelete(path) {
+    const res = await fetch(`${API_BASE}${path}`, { method: 'DELETE' });
+    return res.json();
+  }
+  function proxyImage(url) {
+    if (!url) return '';
+    if (url.startsWith('//')) url = 'https:' + url;
+    if (!url.startsWith('http')) return url;
+    return `${API_BASE}/api/image?url=${encodeURIComponent(url)}`;
+  }
+
+  function renderVideoInfo(video, fetchedAt) {
+    const { bvid = '', title = '无标题', pic = '', desc = '暂无简介', owner = {}, stat = {}, duration = 0, pubdate = 0 } = video;
+    const upName = owner.name || '未知UP主';
+    const avatarUrl = proxyImage(owner.face);
+    const coverUrl = proxyImage(pic) || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'125\'%3E%3Crect width=\'200\' height=\'125\' fill=\'%23f0e6f5\'/%3E%3Ctext x=\'100\' y=\'70\' font-family=\'sans-serif\' font-size=\'14\' fill=\'%23b8a7c5\' text-anchor=\'middle\'%3E无封面%3C/text%3E%3C/svg%3E';
+
+    const stats = [
+      { icon: '▶️', label: '播放量', value: stat.view },
+      { icon: '💬', label: '弹幕', value: stat.danmaku },
+      { icon: '❤️', label: '点赞', value: stat.like },
+      { icon: '⭐', label: '收藏', value: stat.favorite },
+      { icon: '🪙', label: '投币', value: stat.coin },
+      { icon: '📝', label: '评论', value: stat.reply },
+    ];
+
+    currentResult.innerHTML = `
+      <div class="video-info">
+        <div class="video-header">
+          <div class="cover"><img src="${coverUrl}" alt="封面" loading="lazy"></div>
+          <div class="meta">
+            <div class="title">${escapeHtml(title)}</div>
+            <div class="up-info">
+              ${avatarUrl ? `<img class="up-avatar" src="${avatarUrl}" alt="" onerror="this.style.display='none';">` : ''}
+              <div class="up-avatar" style="${avatarUrl ? 'display:none;' : ''}">${escapeHtml(upName.charAt(0))}</div>
+              <span>${escapeHtml(upName)}</span>
+            </div>
+            <div style="display:flex;gap:0.6rem;flex-wrap:wrap;font-size:0.85rem;color:#6a5677;">
+              <span>⏱️ ${formatDuration(duration)}</span>
+              <span>📅 ${formatDate(pubdate)}</span>
+              <span class="badge">${escapeHtml(bvid)}</span>
+            </div>
+          </div>
+        </div>
+        <div class="stats-grid">
+          ${stats.map(s => `<div class="stat-item"><div class="stat-icon">${s.icon}</div><div><div class="stat-label">${s.label}</div><div class="stat-value">${formatNumber(s.value)}</div></div></div>`).join('')}
+        </div>
+        <div class="desc-box"><strong>📄 简介：</strong> ${escapeHtml(desc.length > 200 ? desc.slice(0, 200) + '…' : desc) || '暂无简介'}</div>
+        ${fetchedAt ? `<div style="font-size:0.78rem;color:#9b8ba8;text-align:right;">本次记录时间：${formatTime(fetchedAt)}</div>` : ''}
+      </div>
+    `;
+  }
+
+  async function handleFetch() {
+    const bvid = bvInput.value.trim();
+    if (!bvid) { showGlobalMessage('请输入 BV 号'); return; }
+    fetchBtn.disabled = true;
+    currentResult.innerHTML = `<div class="loading-spinner"><div class="spinner"></div><span>正在获取视频信息...</span></div>`;
+    try {
+      const result = await apiGet(`/api/video?bvid=${encodeURIComponent(bvid)}`);
+      if (result.code !== 0) {
+        currentResult.innerHTML = `<div class="error-message"><span>⚠️</span> ${escapeHtml(result.message || '查询失败')}</div>`;
+        return;
+      }
+      renderVideoInfo(result.data, result.fetchedAt);
+      showGlobalMessage('已加入监控，后台会定期刷新', 'success');
+      loadWatchlist();
+    } catch (err) {
+      currentResult.innerHTML = `<div class="error-message"><span>⚠️</span> 网络错误：${escapeHtml(err.message)}</div>`;
+    } finally {
+      fetchBtn.disabled = false;
+    }
+  }
+
+  async function loadWatchlist() {
+    watchlistContent.innerHTML = `<div class="loading-spinner"><div class="spinner"></div><span>加载中...</span></div>`;
+    try {
+      const result = await apiGet('/api/history');
+      if (result.code !== 0) {
+        watchlistContent.innerHTML = `<div class="error-message"><span>⚠️</span> ${escapeHtml(result.message)}</div>`;
+        return;
+      }
+      watchedList = result.data || [];
+      watchCount.textContent = watchedList.length;
+
+      if (watchedList.length === 0) {
+        watchlistContent.innerHTML = `<div class="empty-hint">暂无监控视频，输入 BV 号查询一次即可加入监控。</div>`;
+      } else {
+        watchlistContent.innerHTML = `<div class="watch-list">${watchedList.map(item => {
+          const latest = item.latest || {};
+          return `
+            <div class="watch-item">
+              <div class="wi-title">${escapeHtml(latest.title || item.bvid)}</div>
+              <div class="wi-meta"><span>▶ ${formatNumber(latest.stat?.view)}</span><span>📊 ${item.count} 条</span></div>
+              <div class="wi-meta" style="margin-top:0.3rem;"><span>🕐 最近 ${formatTime(item.lastFetch)}</span></div>
+              <div class="wi-actions">
+                <button class="btn btn-ghost" data-action="query" data-bvid="${escapeHtml(item.bvid)}">🔍 查询</button>
+                <button class="btn btn-danger" data-action="remove" data-bvid="${escapeHtml(item.bvid)}">🗑 停止</button>
+              </div>
+            </div>
+          `;
+        }).join('')}</div>`;
+      }
+
+      renderCompareList();
+    } catch (err) {
+      watchlistContent.innerHTML = `<div class="error-message"><span>⚠️</span> 加载失败：${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  watchlistContent.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const bvid = btn.dataset.bvid;
+    if (action === 'query') {
+      bvInput.value = bvid;
+      switchTab('panel-current');
+      await handleFetch();
+    } else if (action === 'remove') {
+      if (!confirm(`确定停止监控 ${bvid} 吗？历史数据也会被删除。`)) return;
+      try {
+        const result = await apiDelete(`/api/watch?bvid=${encodeURIComponent(bvid)}`);
+        if (result.code === 0) {
+          showGlobalMessage('已停止监控', 'success');
+          selectedBvids.delete(bvid);
+          loadWatchlist();
+        } else {
+          showGlobalMessage(result.message || '操作失败');
+        }
+      } catch (err) {
+        showGlobalMessage('操作失败：' + err.message);
+      }
+    }
+  });
+
+  function renderCompareList() {
+    if (watchedList.length === 0) {
+      compareList.innerHTML = `<div class="empty-hint" style="grid-column:1/-1;">暂无监控视频，先查询一次 BV 号</div>`;
+      return;
+    }
+    compareList.innerHTML = watchedList.map(item => {
+      const latest = item.latest || {};
+      const bvid = item.bvid;
+      const isSelected = selectedBvids.has(bvid);
+      return `
+        <div class="compare-item ${isSelected ? 'selected' : ''}" data-bvid="${escapeHtml(bvid)}">
+          <input type="checkbox" ${isSelected ? 'checked' : ''} data-bvid="${escapeHtml(bvid)}">
+          <div class="color-dot"></div>
+          <div class="ci-info">
+            <div class="ci-title" title="${escapeHtml(latest.title || bvid)}">${escapeHtml(latest.title || bvid)}</div>
+            <div class="ci-meta">${escapeHtml(bvid)} · ${item.count}条</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+    updateColorDots();
+  }
+
+  function updateColorDots() {
+    const arr = Array.from(selectedBvids);
+    compareList.querySelectorAll('.compare-item').forEach(el => {
+      const bvid = el.dataset.bvid;
+      const dot = el.querySelector('.color-dot');
+      const idx = arr.indexOf(bvid);
+      if (idx >= 0) {
+        dot.style.background = COLORS[idx % COLORS.length];
+        el.classList.add('selected');
+        el.querySelector('input').checked = true;
+      } else {
+        dot.style.background = 'transparent';
+        el.classList.remove('selected');
+        el.querySelector('input').checked = false;
+      }
+    });
+  }
+
+  compareList.addEventListener('click', (e) => {
+    if (e.target.tagName === 'INPUT') return;
+    const item = e.target.closest('.compare-item');
+    if (!item) return;
+    toggleBvid(item.dataset.bvid);
+  });
+
+  compareList.addEventListener('change', (e) => {
+    if (e.target.tagName !== 'INPUT') return;
+    const bvid = e.target.dataset.bvid;
+    if (e.target.checked) {
+      if (selectedBvids.size >= MAX_COMPARE) {
+        e.target.checked = false;
+        showGlobalMessage(`最多同时对比 ${MAX_COMPARE} 个视频`);
+        return;
+      }
+      selectedBvids.add(bvid);
+    } else {
+      selectedBvids.delete(bvid);
+    }
+    updateColorDots();
+    loadCompare();
+  });
+
+  function toggleBvid(bvid) {
+    if (selectedBvids.has(bvid)) {
+      selectedBvids.delete(bvid);
+    } else {
+      if (selectedBvids.size >= MAX_COMPARE) {
+        showGlobalMessage(`最多同时对比 ${MAX_COMPARE} 个视频`);
+        return;
+      }
+      selectedBvids.add(bvid);
+    }
+    updateColorDots();
+    loadCompare();
+  }
+
+  selectAllBtn.addEventListener('click', () => {
+    selectedBvids.clear();
+    watchedList.slice(0, MAX_COMPARE).forEach(item => selectedBvids.add(item.bvid));
+    updateColorDots();
+    loadCompare();
+  });
+
+  clearAllBtn.addEventListener('click', () => {
+    selectedBvids.clear();
+    updateColorDots();
+    if (compareChartInstance) { compareChartInstance.destroy(); compareChartInstance = null; }
+    compareEmpty.style.display = 'block';
+    compareEmpty.textContent = '勾选上方视频即可查看趋势';
+    compareTable.innerHTML = '';
+  });
+
+  async function loadCompare() {
+    if (selectedBvids.size < 1) {
+      if (compareChartInstance) { compareChartInstance.destroy(); compareChartInstance = null; }
+      compareEmpty.style.display = 'block';
+      compareEmpty.textContent = '勾选上方视频即可查看趋势';
+      compareTable.innerHTML = '';
+      return;
+    }
+
+    compareEmpty.style.display = 'block';
+    compareEmpty.textContent = '加载中...';
+
+    try {
+      const bvidsParam = Array.from(selectedBvids).join(',');
+      const result = await apiGet(`/api/compare?bvids=${encodeURIComponent(bvidsParam)}&metric=${currentMetric}&mode=${currentMode}`);
+      if (result.code !== 0) {
+        compareEmpty.textContent = result.message || '加载失败';
+        return;
+      }
+      const { timeline, series } = result.data;
+      if (timeline.length === 0) {
+        compareEmpty.style.display = 'block';
+        compareEmpty.textContent = '暂无历史数据';
+        return;
+      }
+      compareEmpty.style.display = 'none';
+      renderCompareChart(timeline, series);
+      renderCompareTable(timeline, series);
+    } catch (err) {
+      compareEmpty.textContent = '加载失败：' + err.message;
+    }
+  }
+
+  function renderCompareChart(timeline, series) {
+    const ctx = compareChartCanvas.getContext('2d');
+    if (compareChartInstance) compareChartInstance.destroy();
+
+    const labels = timeline.map(t => {
+      const d = new Date(t);
+      const pad = (n) => n.toString().padStart(2, '0');
+      return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    });
+
+    const datasets = series.map((s, idx) => {
+      const color = COLORS[idx % COLORS.length];
+      return {
+        label: s.title || s.bvid,
+        data: s.points.map(p => p.value),
+        borderColor: color,
+        backgroundColor: color + '15',
+        borderWidth: 2.5,
+        fill: false,
+        tension: 0.25,
+        pointRadius: 4,
+        pointHoverRadius: 7,
+        pointBackgroundColor: color,
+        spanGaps: true,
+      };
+    });
+
+    compareChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15, font: { size: 12 } } },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.parsed.y;
+                if (v === null) return `${ctx.dataset.label}：无数据`;
+                if (currentMode === 'percent') return `${ctx.dataset.label}：${v}%`;
+                return `${ctx.dataset.label}：${formatNumber(v)}`;
+              },
+            },
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: currentMode === 'delta',
+            ticks: {
+              callback: (v) => {
+                if (currentMode === 'percent') return v + '%';
+                if (currentMode === 'delta') {
+                  if (v >= 10000) return (v / 10000).toFixed(1) + '万';
+                  return v.toLocaleString();
+                }
+                if (v >= 100000000) return (v / 100000000).toFixed(2) + '亿';
+                if (v >= 10000) return (v / 10000).toFixed(2) + '万';
+                return v.toLocaleString();
+              },
+            },
+            grid: { color: '#f0e6f5' },
+          },
+          x: {
+            ticks: { maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 12, font: { size: 11 } },
+            grid: { display: false },
+          },
+        },
+      },
+    });
+  }
+
+  function renderCompareTable(timeline, series) {
+    const metricNames = { view:'播放量', like:'点赞', coin:'投币', favorite:'收藏', reply:'评论', danmaku:'弹幕' };
+    const modeNames = { absolute:'绝对值', delta:'增量', percent:'百分比' };
+    const header = `<tr><th>时间</th>${series.map((s, i) => `<th style="color:${COLORS[i % COLORS.length]};" title="${escapeHtml(s.bvid)}">${escapeHtml((s.title || s.bvid).slice(0, 15))}</th>`).join('')}</tr>`;
+
+    const rows = timeline.map((t, ti) => {
+      const cells = series.map((s) => {
+        const point = s.points[ti];
+        if (!point || point.value === null) return `<td style="color:#ccc;">—</td>`;
+        const cur = point.value;
+
+        let curStr;
+        if (currentMode === 'percent') curStr = cur + '%';
+        else curStr = formatNumber(cur);
+
+        if (currentMode === 'delta') {
+          return `<td style="font-weight:600;">${curStr}</td>`;
+        }
+
+        const prevPoint = ti > 0 ? s.points[ti - 1] : null;
+        const prev = prevPoint && prevPoint.value !== null ? prevPoint.value : null;
+        const diff = prev !== null ? cur - prev : null;
+        let diffHtml = '';
+        if (diff !== null && ti > 0) {
+          if (currentMode === 'percent') {
+            if (diff > 0) diffHtml = `<div class="delta-up" style="font-size:0.72rem;">+${diff.toFixed(2)}%</div>`;
+            else if (diff < 0) diffHtml = `<div class="delta-down" style="font-size:0.72rem;">${diff.toFixed(2)}%</div>`;
+            else diffHtml = `<div class="delta-zero" style="font-size:0.72rem;">0%</div>`;
+          } else {
+            if (diff > 0) diffHtml = `<div class="delta-up" style="font-size:0.72rem;">+${formatNumber(diff)}</div>`;
+            else if (diff < 0) diffHtml = `<div class="delta-down" style="font-size:0.72rem;">${formatNumber(diff)}</div>`;
+            else diffHtml = `<div class="delta-zero" style="font-size:0.72rem;">0</div>`;
+          }
+        }
+        return `<td style="font-weight:600;">${curStr}${diffHtml}</td>`;
+      }).join('');
+      return `<tr><td style="color:#8d7b9b;font-size:0.78rem;white-space:nowrap;">${formatTime(t)}</td>${cells}</tr>`;
+    }).join('');
+
+    compareTable.innerHTML = `
+      <div style="font-weight:600;margin:1.5rem 0 0.75rem;">📋 ${metricNames[currentMetric]} 明细 · ${modeNames[currentMode]}${currentMode !== 'delta' ? '（含每次增量）' : ''}</div>
+      <div style="max-height:400px;overflow:auto;border-radius:1rem;background:#f9f2f5;padding:0.5rem 1rem;">
+        <table class="compare-table">
+          <thead style="position:sticky;top:0;background:#f9f2f5;z-index:1;">${header}</thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function switchTab(panelId) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.panel === panelId));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === panelId));
+    if (panelId === 'panel-watchlist') loadWatchlist();
+    if (panelId === 'panel-compare') loadWatchlist();
+  }
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.panel));
+  });
+
+  document.getElementById('compareControls').addEventListener('click', (e) => {
+    const btn = e.target.closest('.metric-toggle');
+    if (!btn) return;
+    document.querySelectorAll('#compareControls .metric-toggle').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMetric = btn.dataset.metric;
+    loadCompare();
+  });
+
+  document.getElementById('modeControls').addEventListener('click', (e) => {
+    const btn = e.target.closest('.metric-toggle');
+    if (!btn) return;
+    document.querySelectorAll('#modeControls .metric-toggle').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+    loadCompare();
+  });
+
+  fetchBtn.addEventListener('click', handleFetch);
+  bvInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); handleFetch(); }
+  });
+  refreshWatchlistBtn.addEventListener('click', loadWatchlist);
+
+  // ========== 批量加入 ==========
+  const toggleBatchBtn = document.getElementById('toggleBatchBtn');
+  const batchPanel = document.getElementById('batchPanel');
+  const batchInput = document.getElementById('batchInput');
+  const batchSubmitBtn = document.getElementById('batchSubmitBtn');
+  const batchClearBtn = document.getElementById('batchClearBtn');
+  const batchStatus = document.getElementById('batchStatus');
+  const batchResult = document.getElementById('batchResult');
+
+  toggleBatchBtn.addEventListener('click', () => {
+    const open = batchPanel.style.display !== 'none';
+    batchPanel.style.display = open ? 'none' : 'block';
+    toggleBatchBtn.textContent = open ? '📦 批量加入 BV 号' : '📦 收起批量面板';
+  });
+
+  batchClearBtn.addEventListener('click', () => {
+    batchInput.value = '';
+    batchStatus.textContent = '';
+    batchResult.innerHTML = '';
+  });
+
+  batchSubmitBtn.addEventListener('click', async () => {
+    const raw = batchInput.value.trim();
+    if (!raw) { showGlobalMessage('请先粘贴 BV 号'); return; }
+
+    const tokens = raw.split(/[\s,;，；]+/).map(s => s.trim()).filter(Boolean);
+    const bvSet = new Set();
+    const invalid = [];
+    for (const t of tokens) {
+      if (/^BV[0-9A-Za-z]{10}$/.test(t)) {
+        bvSet.add(t);
+      } else {
+        invalid.push(t);
+      }
+    }
+    const bvList = Array.from(bvSet);
+
+    if (bvList.length === 0) {
+      showGlobalMessage('没有识别到有效的 BV 号');
+      return;
+    }
+
+    batchSubmitBtn.disabled = true;
+    batchResult.innerHTML = '';
+    let success = 0;
+    let failed = 0;
+
+    for (let i = 0; i < bvList.length; i++) {
+      const bvid = bvList[i];
+      batchStatus.textContent = `正在处理 ${i + 1}/${bvList.length}：${bvid}`;
+      try {
+        const result = await apiGet(`/api/video?bvid=${encodeURIComponent(bvid)}`);
+        if (result.code === 0) {
+          success++;
+          batchResult.innerHTML += `<div style="color:#1c7a3e;">✅ ${escapeHtml(bvid)} 已加入监控</div>`;
+        } else {
+          failed++;
+          batchResult.innerHTML += `<div style="color:#c0345c;">❌ ${escapeHtml(bvid)}：${escapeHtml(result.message || '失败')}</div>`;
+        }
+      } catch (err) {
+        failed++;
+        batchResult.innerHTML += `<div style="color:#c0345c;">❌ ${escapeHtml(bvid)}：${escapeHtml(err.message)}</div>`;
+      }
+      if (i < bvList.length - 1) {
+        await new Promise(r => setTimeout(r, 800 + Math.random() * 700));
+      }
+    }
+
+    batchStatus.textContent = `完成：成功 ${success}，失败 ${failed}`;
+    if (invalid.length > 0) {
+      batchResult.innerHTML += `<div style="color:#8d7b9b;margin-top:0.5rem;">忽略 ${invalid.length} 个无效项：${escapeHtml(invalid.slice(0, 5).join(', '))}${invalid.length > 5 ? ' ...' : ''}</div>`;
+    }
+    batchSubmitBtn.disabled = false;
+
+    loadWatchlist();
+  });
+
+  loadWatchlist();
+})();
+</script>
+</body>
+</html>
